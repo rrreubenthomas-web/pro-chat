@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code Chat</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+  :root {
+    --bg: #eef3f1; --panel: #ffffff; --ink: #1d2b29; --muted: #5f7370;
+    --accent: #0f766e; --accent-ink: #ffffff; --mine: #d3ece8; --theirs: #f1f4f3;
+    --line: #d5dedb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12201e; --panel: #1a2b29; --ink: #e6efed; --muted: #8fa5a1;
+      --accent: #2dd4bf; --accent-ink: #082623; --mine: #1f4a45; --theirs: #243936;
+      --line: #2c423f;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: Georgia, "Times New Roman", serif; display: flex; justify-content: center; }
+  .app { width: 100%; max-width: 640px; height: 100%; display: flex; flex-direction: column; background: var(--panel); }
+  .hidden { display: none !important; }
+  h1 { font-size: 2rem; margin: 0 0 .25rem; }
+  p.sub { color: var(--muted); margin: 0 0 1.5rem; }
+  input, button { font: inherit; }
+  input { width: 100%; padding: .75rem .9rem; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
+  input:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+  button { padding: .75rem 1.2rem; border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-ink); cursor: pointer; font-weight: bold; }
+  label { display: block; margin: 0 0 .3rem; color: var(--muted); font-size: .9rem; }
+  #join { padding: 12vh 1.5rem 1.5rem; }
+  #join .field { margin-bottom: 1rem; }
+  #join button { width: 100%; }
+  #joinError { color: #b42318; min-height: 1.2em; margin-top: .75rem; }
+  header { display: flex; justify-content: space-between; align-items: center; padding: .8rem 1rem; border-bottom: 1px solid var(--line); }
+  header strong { font-size: 1.15rem; letter-spacing: .08em; }
+  header small { color: var(--muted); display: block; }
+  header button { background: transparent; color: var(--ink); border: 1px solid var(--line); padding: .4rem .8rem; }
+  #messages { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: .6rem; }
+  .msg { max-width: 80%; padding: .55rem .8rem; border-radius: 12px; background: var(--theirs); overflow-wrap: anywhere; }
+  .msg.mine { align-self: flex-end; background: var(--mine); }
+  .msg .who { font-size: .78rem; color: var(--muted); margin-bottom: .15rem; }
+  .empty { color: var(--muted); text-align: center; margin: auto; }
+  form { display: flex; gap: .5rem; padding: .8rem 1rem; border-top: 1px solid var(--line); padding-bottom: max(.8rem, env(safe-area-inset-bottom)); }
+  form input { flex: 1; }
+  .notice { padding: .5rem 1rem; background: #fff4d6; color: #5c4400; font-size: .9rem; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Join screen -->
+  <section id="join">
+    <h1>Code Chat</h1>
+    <p class="sub">Enter a room code. Anyone with the same code joins the same chat. No sign-up needed.</p>
+    <div class="field">
+      <label for="nick">Your nickname</label>
+      <input id="nick" maxlength="20" placeholder="e.g. Sam" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="code">Room code</label>
+      <input id="code" maxlength="20" placeholder="e.g. K7M2QX" autocomplete="off">
+    </div>
+    <button id="joinBtn">Join room</button>
+    <div id="joinError" role="alert"></div>
+  </section>
+
+  <!-- Chat screen -->
+  <section id="chat" class="hidden" style="display:flex; flex-direction:column; flex:1; min-height:0;">
+    <header>
+      <div><small>Room</small><strong id="roomLabel"></strong></div>
+      <button id="leaveBtn">Leave</button>
+    </header>
+    <div id="status" class="notice hidden"></div>
+    <div id="messages" aria-live="polite"></div>
+    <form id="sendForm">
+      <input id="text" maxlength="500" placeholder="Type a message" autocomplete="off">
+      <button type="submit">Send</button>
+    </form>
+  </section>
+
+</div>
+
+<script>
+  // ====== STEP 1: PASTE YOUR SUPABASE DETAILS HERE ======
+  const SUPABASE_URL = "https://dviiygeluinbnxmokqwb.supabase.co";
+const SUPABASE_KEY = "sb_publishable_8jf-9HzjfbnhAtZNDQaVDA_7u1-Iz-u";
+// =======================================================
+  const $ = (id) => document.getElementById(id);
+  let db = null, channel = null, room = "", nick = "";
+  const seen = new Set();
+
+  if (SUPABASE_URL.startsWith("PASTE") || SUPABASE_KEY.startsWith("PASTE")) {
+    $("joinError").textContent = "Setup needed: add your Supabase URL and key in index.html.";
+  } else {
+    db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  }
+
+  // Remember nickname on this device
+  try { $("nick").value = localStorage.getItem("nick") || ""; } catch (e) {}
+
+  function addMessage(m) {
+    if (seen.has(m.id)) return;
+    seen.add(m.id);
+    const box = $("messages");
+    const empty = box.querySelector(".empty");
+    if (empty) empty.remove();
+    const el = document.createElement("div");
+    el.className = "msg" + (m.nickname === nick ? " mine" : "");
+    const who = document.createElement("div");
+    who.className = "who";
+    who.textContent = m.nickname;
+    const body = document.createElement("div");
+    body.textContent = m.text; // textContent keeps messages safe from HTML injection
+    el.append(who, body);
+    box.append(el);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  async function join() {
+    if (!db) return;
+    nick = $("nick").value.trim();
+    room = $("code").value.trim().toUpperCase();
+    if (!nick || !room) { $("joinError").textContent = "Enter a nickname and a room code."; return; }
+    try { localStorage.setItem("nick", nick); } catch (e) {}
+
+    $("joinError").textContent = "";
+    $("join").classList.add("hidden");
+    $("chat").classList.remove("hidden");
+    $("roomLabel").textContent = room;
+    $("messages").innerHTML = '<p class="empty">No messages yet. Say hello.</p>';
+    seen.clear();
+
+    // Load earlier messages
+    const { data, error } = await db.from("messages").select("*")
+      .eq("room_code", room).order("created_at", { ascending: true }).limit(200);
+    if (error) showStatus("Could not load messages: " + error.message);
+    else (data || []).forEach(addMessage);
+
+    // Listen for new messages in this room
+    channel = db.channel("room-" + room)
+      .on("postgres_changes",
+          { event: "INSERT", schema: "public", table: "messages", filter: "room_code=eq." + room },
+          (payload) => addMessage(payload.new))
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") showStatus("");
+        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") showStatus("Connection problem. Check your internet.");
+      });
+  }
+
+  function showStatus(msg) {
+    const s = $("status");
+    s.textContent = msg;
+    s.classList.toggle("hidden", !msg);
+  }
+
+  async function send(e) {
+    e.preventDefault();
+    const text = $("text").value.trim();
+    if (!text) return;
+    $("text").value = "";
+    const { error } = await db.from("messages").insert({ room_code: room, nickname: nick, text });
+    if (error) showStatus("Message not sent: " + error.message);
+  }
+
+  function leave() {
+    if (channel) db.removeChannel(channel);
+    channel = null;
+    $("chat").classList.add("hidden");
+    $("join").classList.remove("hidden");
+    $("code").value = "";
+  }
+
+  $("joinBtn").addEventListener("click", join);
+  $("code").addEventListener("keydown", (e) => { if (e.key === "Enter") join(); });
+  $("sendForm").addEventListener("submit", send);
+  $("leaveBtn").addEventListener("click", leave);
+</script>
+</body>
+</html>
