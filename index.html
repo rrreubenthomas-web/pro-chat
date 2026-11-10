@@ -1,182 +1,863 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#eef3f1">
 <title>Code Chat</title>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+
 <style>
-  :root {
-    --bg: #eef3f1; --panel: #ffffff; --ink: #1d2b29; --muted: #5f7370;
-    --accent: #0f766e; --accent-ink: #ffffff; --mine: #d3ece8; --theirs: #f1f4f3;
-    --line: #d5dedb;
+:root {
+  --bg: #eef3f1;
+  --panel: #ffffff;
+  --ink: #1d2b29;
+  --muted: #71817e;
+  --accent: #0f766e;
+  --accent-ink: #ffffff;
+  --mine: #d3ece8;
+  --theirs: #f1f4f3;
+  --line: #d5dedb;
+  --notice: #fff4d6;
+}
+
+:root[data-theme="dark"] {
+  --bg: #12201e;
+  --panel: #1a2b29;
+  --ink: #e6efed;
+  --muted: #8fa5a1;
+  --accent: #2dd4bf;
+  --accent-ink: #082623;
+  --mine: #1f4a45;
+  --theirs: #243936;
+  --line: #2c423f;
+  --notice: #453b20;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --bg: #12201e;
+    --panel: #1a2b29;
+    --ink: #e6efed;
+    --muted: #8fa5a1;
+    --accent: #2dd4bf;
+    --accent-ink: #082623;
+    --mine: #1f4a45;
+    --theirs: #243936;
+    --line: #2c423f;
+    --notice: #453b20;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #12201e; --panel: #1a2b29; --ink: #e6efed; --muted: #8fa5a1;
-      --accent: #2dd4bf; --accent-ink: #082623; --mine: #1f4a45; --theirs: #243936;
-      --line: #2c423f;
-    }
-  }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
-  body { background: var(--bg); color: var(--ink); font-family: Georgia, "Times New Roman", serif; display: flex; justify-content: center; }
-  .app { width: 100%; max-width: 640px; height: 100%; display: flex; flex-direction: column; background: var(--panel); }
-  .hidden { display: none !important; }
-  h1 { font-size: 2rem; margin: 0 0 .25rem; }
-  p.sub { color: var(--muted); margin: 0 0 1.5rem; }
-  input, button { font: inherit; }
-  input { width: 100%; padding: .75rem .9rem; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
-  input:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
-  button { padding: .75rem 1.2rem; border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-ink); cursor: pointer; font-weight: bold; }
-  label { display: block; margin: 0 0 .3rem; color: var(--muted); font-size: .9rem; }
-  #join { padding: 12vh 1.5rem 1.5rem; }
-  #join .field { margin-bottom: 1rem; }
-  #join button { width: 100%; }
-  #joinError { color: #b42318; min-height: 1.2em; margin-top: .75rem; }
-  header { display: flex; justify-content: space-between; align-items: center; padding: .8rem 1rem; border-bottom: 1px solid var(--line); }
-  header strong { font-size: 1.15rem; letter-spacing: .08em; }
-  header small { color: var(--muted); display: block; }
-  header button { background: transparent; color: var(--ink); border: 1px solid var(--line); padding: .4rem .8rem; }
-  #messages { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: .6rem; }
-  .msg { max-width: 80%; padding: .55rem .8rem; border-radius: 12px; background: var(--theirs); overflow-wrap: anywhere; }
-  .msg.mine { align-self: flex-end; background: var(--mine); }
-  .msg .who { font-size: .78rem; color: var(--muted); margin-bottom: .15rem; }
-  .empty { color: var(--muted); text-align: center; margin: auto; }
-  form { display: flex; gap: .5rem; padding: .8rem 1rem; border-top: 1px solid var(--line); padding-bottom: max(.8rem, env(safe-area-inset-bottom)); }
-  form input { flex: 1; }
-  .notice { padding: .5rem 1rem; background: #fff4d6; color: #5c4400; font-size: .9rem; }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Arial, sans-serif;
+  display: flex;
+  justify-content: center;
+}
+
+button, input { font: inherit; }
+
+button {
+  cursor: pointer;
+  border: 0;
+  border-radius: 9px;
+  padding: 11px 16px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  transition: opacity .2s, transform .2s;
+}
+
+button:hover { opacity: .85; }
+button:active { transform: scale(.98); }
+
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.hidden { display: none !important; }
+
+.app {
+  width: 100%;
+  max-width: 700px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+}
+
+#join {
+  padding: 12vh 24px 24px;
+}
+
+h1 {
+  font-size: 2.2rem;
+  margin: 0 0 8px;
+}
+
+.sub {
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.field { margin-bottom: 18px; }
+
+label {
+  display: block;
+  color: var(--muted);
+  font-size: .9rem;
+  margin-bottom: 7px;
+}
+
+#joinBtn { width: 100%; }
+
+#joinError {
+  color: #dc5555;
+  margin-top: 12px;
+  min-height: 20px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  gap: 10px;
+}
+
+.room-info small {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.room-info strong {
+  font-size: 1.1rem;
+  letter-spacing: 2px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.header-actions button {
+  padding: 9px 11px;
+}
+
+#themeBtn, #leaveBtn {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+#online {
+  padding: 9px 15px;
+  font-size: .85rem;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+
+.online-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  margin-right: 6px;
+}
+
+.notice {
+  padding: 10px 15px;
+  background: var(--notice);
+  font-size: .85rem;
+  color: var(--ink);
+}
+
+#messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scroll-behavior: smooth;
+}
+
+.msg {
+  max-width: 82%;
+  padding: 10px 13px;
+  border-radius: 13px;
+  background: var(--theirs);
+  overflow-wrap: anywhere;
+  animation: appear .2s ease;
+}
+
+.msg.mine {
+  align-self: flex-end;
+  background: var(--mine);
+}
+
+.who {
+  font-size: .78rem;
+  color: var(--muted);
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.message-text {
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+
+.msg time {
+  display: block;
+  font-size: .68rem;
+  color: var(--muted);
+  text-align: right;
+  margin-top: 6px;
+}
+
+.empty {
+  color: var(--muted);
+  text-align: center;
+  margin: auto;
+}
+
+#typing {
+  min-height: 25px;
+  padding: 3px 16px;
+  color: var(--muted);
+  font-size: .82rem;
+}
+
+form {
+  display: flex;
+  gap: 9px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+form input { flex: 1; min-width: 0; }
+
+form button { min-width: 75px; }
+
+@keyframes appear {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media(max-width: 480px) {
+  #join { padding-top: 15vh; }
+  .msg { max-width: 90%; }
+  header { padding: 11px; }
+  #messages { padding: 12px; }
+}
 </style>
 </head>
+
 <body>
+
 <div class="app">
 
-  <!-- Join screen -->
+  <!-- JOIN SCREEN -->
   <section id="join">
+
     <h1>Code Chat</h1>
-    <p class="sub">Enter a room code. Anyone with the same code joins the same chat. No sign-up needed.</p>
+
+    <p class="sub">
+      Connect with friends using a room code.
+      No registration or account required.
+    </p>
+
     <div class="field">
       <label for="nick">Your nickname</label>
-      <input id="nick" maxlength="20" placeholder="e.g. Sam" autocomplete="off">
+      <input
+        id="nick"
+        maxlength="20"
+        placeholder="Enter your nickname"
+        autocomplete="off"
+      >
     </div>
+
     <div class="field">
       <label for="code">Room code</label>
-      <input id="code" maxlength="20" placeholder="e.g. K7M2QX" autocomplete="off">
+      <input
+        id="code"
+        maxlength="20"
+        placeholder="Enter room code"
+        autocomplete="off"
+      >
     </div>
+
     <button id="joinBtn">Join room</button>
+
     <div id="joinError" role="alert"></div>
+
   </section>
 
-  <!-- Chat screen -->
-  <section id="chat" class="hidden" style="display:flex; flex-direction:column; flex:1; min-height:0;">
+  <!-- CHAT SCREEN -->
+  <section id="chat" class="hidden"
+    style="display:flex;flex-direction:column;flex:1;min-height:0;">
+
     <header>
-      <div><small>Room</small><strong id="roomLabel"></strong></div>
-      <button id="leaveBtn">Leave</button>
+
+      <div class="room-info">
+        <small>Room code</small>
+        <strong id="roomLabel"></strong>
+      </div>
+
+      <div class="header-actions">
+        <button id="themeBtn" aria-label="Switch theme">🌙</button>
+        <button id="leaveBtn">Leave</button>
+      </div>
+
     </header>
+
+    <div id="online">
+      <span class="online-dot"></span>
+      <span id="onlineCount">Connecting...</span>
+    </div>
+
     <div id="status" class="notice hidden"></div>
+
     <div id="messages" aria-live="polite"></div>
+
+    <div id="typing" aria-live="polite"></div>
+
     <form id="sendForm">
-      <input id="text" maxlength="500" placeholder="Type a message" autocomplete="off">
+
+      <input
+        id="text"
+        maxlength="500"
+        placeholder="Type a message..."
+        autocomplete="off"
+      >
+
       <button type="submit">Send</button>
+
     </form>
+
   </section>
 
 </div>
 
 <script>
-  // ====== STEP 1: PASTE YOUR SUPABASE DETAILS HERE ======
-  const SUPABASE_URL = "https://dviiygeluinbnxmokqwb.supabase.co";
+
+// ========================================
+// SUPABASE CONFIGURATION
+// ========================================
+
+const SUPABASE_URL = "https://dviiygeluinbnxmokqwb.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8jf-9HzjfbnhAtZNDQaVDA_7u1-Iz-u";
-// =======================================================
-  const $ = (id) => document.getElementById(id);
-  let db = null, channel = null, room = "", nick = "";
-  const seen = new Set();
 
-  if (SUPABASE_URL.startsWith("PASTE") || SUPABASE_KEY.startsWith("PASTE")) {
-    $("joinError").textContent = "Setup needed: add your Supabase URL and key in index.html.";
+// ========================================
+
+const $ = id => document.getElementById(id);
+
+const db = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
+
+let channel = null;
+let room = "";
+let nick = "";
+let typingTimer = null;
+let remoteTypingTimer = null;
+let isTyping = false;
+
+const seen = new Set();
+
+const userId = (() => {
+  try {
+    let id = sessionStorage.getItem("chat_user_id");
+
+    if (!id) {
+      id = crypto.randomUUID();
+      sessionStorage.setItem("chat_user_id", id);
+    }
+
+    return id;
+  } catch (e) {
+    return crypto.randomUUID();
+  }
+})();
+
+// ========================================
+// THEME
+// ========================================
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+
+  $("themeBtn").textContent =
+    theme === "dark" ? "☀️" : "🌙";
+
+  try {
+    localStorage.setItem("chat_theme", theme);
+  } catch (e) {}
+}
+
+let savedTheme = null;
+
+try {
+  savedTheme = localStorage.getItem("chat_theme");
+} catch (e) {}
+
+if (savedTheme) {
+  applyTheme(savedTheme);
+}
+
+$("themeBtn").addEventListener("click", () => {
+
+  const current =
+    document.documentElement.dataset.theme ||
+    (window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light");
+
+  applyTheme(current === "dark" ? "light" : "dark");
+
+});
+
+// ========================================
+// REMEMBER NICKNAME
+// ========================================
+
+try {
+  $("nick").value = localStorage.getItem("nick") || "";
+} catch (e) {}
+
+// ========================================
+// STATUS MESSAGE
+// ========================================
+
+function showStatus(message) {
+  $("status").textContent = message;
+  $("status").classList.toggle("hidden", !message);
+}
+
+// ========================================
+// MESSAGE DISPLAY
+// ========================================
+
+function addMessage(m) {
+
+  const key = m.id || [
+    m.created_at,
+    m.nickname,
+    m.text
+  ].join("|");
+
+  if (seen.has(key)) return;
+
+  seen.add(key);
+
+  const box = $("messages");
+
+  const empty = box.querySelector(".empty");
+
+  if (empty) empty.remove();
+
+  const el = document.createElement("div");
+
+  el.className =
+    "msg" + (m.nickname === nick ? " mine" : "");
+
+  const who = document.createElement("div");
+
+  who.className = "who";
+  who.textContent = m.nickname || "Unknown";
+
+  const body = document.createElement("div");
+
+  body.className = "message-text";
+  body.textContent = m.text || "";
+
+  const time = document.createElement("time");
+
+  const date = m.created_at
+    ? new Date(m.created_at)
+    : new Date();
+
+  time.textContent = date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+
+  el.append(who, body, time);
+
+  box.append(el);
+
+  box.scrollTop = box.scrollHeight;
+}
+
+// ========================================
+// ONLINE USERS
+// ========================================
+
+function updateOnlineUsers() {
+
+  if (!channel) return;
+
+  const users = channel.presenceState();
+
+  const count = Object.keys(users).length;
+
+  $("onlineCount").textContent =
+    count + (count === 1 ? " person online" : " people online");
+
+}
+
+// ========================================
+// JOIN ROOM
+// ========================================
+
+async function join() {
+
+  nick = $("nick").value.trim();
+
+  room = $("code").value.trim().toUpperCase();
+
+  if (!nick || !room) {
+    $("joinError").textContent =
+      "Enter your nickname and room code.";
+    return;
+  }
+
+  if (!/^[a-zA-Z0-9_-]{3,20}$/.test(room)) {
+    $("joinError").textContent =
+      "Use 3–20 letters, numbers, hyphens or underscores for the room code.";
+    return;
+  }
+
+  if (!db) return;
+
+  try {
+    localStorage.setItem("nick", nick);
+  } catch (e) {}
+
+  $("joinError").textContent = "";
+
+  $("join").classList.add("hidden");
+
+  $("chat").classList.remove("hidden");
+
+  $("roomLabel").textContent = room;
+
+  $("messages").innerHTML =
+    '<p class="empty">No messages yet. Say hello!</p>';
+
+  $("onlineCount").textContent = "Connecting...";
+
+  $("typing").textContent = "";
+
+  seen.clear();
+
+  // Load previous messages
+
+  const { data, error } = await db
+    .from("messages")
+    .select("*")
+    .eq("room_code", room)
+    .order("created_at", { ascending: true })
+    .limit(200);
+
+  if (error) {
+    showStatus("Could not load messages: " + error.message);
   } else {
-    db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    (data || []).forEach(addMessage);
   }
 
-  // Remember nickname on this device
-  try { $("nick").value = localStorage.getItem("nick") || ""; } catch (e) {}
+  // Create real-time room channel
 
-  function addMessage(m) {
-    if (seen.has(m.id)) return;
-    seen.add(m.id);
-    const box = $("messages");
-    const empty = box.querySelector(".empty");
-    if (empty) empty.remove();
-    const el = document.createElement("div");
-    el.className = "msg" + (m.nickname === nick ? " mine" : "");
-    const who = document.createElement("div");
-    who.className = "who";
-    who.textContent = m.nickname;
-    const body = document.createElement("div");
-    body.textContent = m.text; // textContent keeps messages safe from HTML injection
-    el.append(who, body);
-    box.append(el);
-    box.scrollTop = box.scrollHeight;
-  }
+  channel = db.channel("room-" + room, {
+    config: {
+      presence: {
+        key: userId
+      }
+    }
+  });
 
-  async function join() {
-    if (!db) return;
-    nick = $("nick").value.trim();
-    room = $("code").value.trim().toUpperCase();
-    if (!nick || !room) { $("joinError").textContent = "Enter a nickname and a room code."; return; }
-    try { localStorage.setItem("nick", nick); } catch (e) {}
+  // Listen for new messages
 
-    $("joinError").textContent = "";
-    $("join").classList.add("hidden");
-    $("chat").classList.remove("hidden");
-    $("roomLabel").textContent = room;
-    $("messages").innerHTML = '<p class="empty">No messages yet. Say hello.</p>';
-    seen.clear();
+  channel.on(
+    "postgres_changes",
+    {
+      event: "INSERT",
+      schema: "public",
+      table: "messages",
+      filter: "room_code=eq." + room
+    },
+    payload => {
+      addMessage(payload.new);
+    }
+  );
 
-    // Load earlier messages
-    const { data, error } = await db.from("messages").select("*")
-      .eq("room_code", room).order("created_at", { ascending: true }).limit(200);
-    if (error) showStatus("Could not load messages: " + error.message);
-    else (data || []).forEach(addMessage);
+  // Listen for online users
 
-    // Listen for new messages in this room
-    channel = db.channel("room-" + room)
-      .on("postgres_changes",
-          { event: "INSERT", schema: "public", table: "messages", filter: "room_code=eq." + room },
-          (payload) => addMessage(payload.new))
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") showStatus("");
-        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") showStatus("Connection problem. Check your internet.");
+  channel.on(
+    "presence",
+    { event: "sync" },
+    () => updateOnlineUsers()
+  );
+
+  // Listen for typing events
+
+  channel.on(
+    "broadcast",
+    { event: "typing" },
+    ({ payload }) => {
+
+      if (!payload || payload.userId === userId) return;
+
+      if (payload.typing) {
+
+        $("typing").textContent =
+          payload.nickname + " is typing...";
+
+        clearTimeout(remoteTypingTimer);
+
+        remoteTypingTimer = setTimeout(() => {
+          $("typing").textContent = "";
+        }, 2500);
+
+      } else {
+
+        $("typing").textContent = "";
+
+        clearTimeout(remoteTypingTimer);
+
+      }
+
+    }
+  );
+
+  // Subscribe
+
+  channel.subscribe(async status => {
+
+    if (status === "SUBSCRIBED") {
+
+      showStatus("");
+
+      await channel.track({
+        nickname: nick,
+        userId: userId,
+        online_at: new Date().toISOString()
       });
+
+      updateOnlineUsers();
+
+    }
+
+    else if (
+      status === "CHANNEL_ERROR" ||
+      status === "TIMED_OUT"
+    ) {
+
+      showStatus("Connection problem. Check your internet.");
+
+      $("onlineCount").textContent = "Disconnected";
+
+    }
+
+    else if (status === "CLOSED") {
+
+      $("onlineCount").textContent = "Disconnected";
+
+    }
+
+  });
+
+}
+
+// ========================================
+// TYPING INDICATOR
+// ========================================
+
+async function sendTyping(typing) {
+
+  if (!channel) return;
+
+  await channel.send({
+    type: "broadcast",
+    event: "typing",
+    payload: {
+      nickname: nick,
+      userId: userId,
+      typing: typing
+    }
+  });
+
+}
+
+$("text").addEventListener("input", () => {
+
+  if (!$("text").value.trim()) {
+
+    clearTimeout(typingTimer);
+
+    if (isTyping) {
+      isTyping = false;
+      sendTyping(false);
+    }
+
+    return;
   }
 
-  function showStatus(msg) {
-    const s = $("status");
-    s.textContent = msg;
-    s.classList.toggle("hidden", !msg);
+  if (!isTyping) {
+    isTyping = true;
+    sendTyping(true);
   }
 
-  async function send(e) {
-    e.preventDefault();
-    const text = $("text").value.trim();
-    if (!text) return;
-    $("text").value = "";
-    const { error } = await db.from("messages").insert({ room_code: room, nickname: nick, text });
-    if (error) showStatus("Message not sent: " + error.message);
+  clearTimeout(typingTimer);
+
+  typingTimer = setTimeout(() => {
+
+    isTyping = false;
+
+    sendTyping(false);
+
+  }, 1200);
+
+});
+
+// ========================================
+// SEND MESSAGE
+// ========================================
+
+async function send(e) {
+
+  e.preventDefault();
+
+  const text = $("text").value.trim();
+
+  if (!text || !channel) return;
+
+  const button = $("sendForm").querySelector("button");
+
+  button.disabled = true;
+
+  const input = $("text");
+
+  input.value = "";
+
+  clearTimeout(typingTimer);
+
+  isTyping = false;
+
+  sendTyping(false);
+
+  const { error } = await db
+    .from("messages")
+    .insert({
+      room_code: room,
+      nickname: nick,
+      text: text
+    });
+
+  if (error) {
+
+    showStatus("Message not sent: " + error.message);
+
+    input.value = text;
+
+  } else {
+
+    showStatus("");
+
   }
 
-  function leave() {
-    if (channel) db.removeChannel(channel);
+  button.disabled = false;
+
+  input.focus();
+
+}
+
+// ========================================
+// LEAVE ROOM
+// ========================================
+
+async function leave() {
+
+  clearTimeout(typingTimer);
+  clearTimeout(remoteTypingTimer);
+
+  if (isTyping) {
+    await sendTyping(false);
+  }
+
+  if (channel) {
+
+    await db.removeChannel(channel);
+
     channel = null;
-    $("chat").classList.add("hidden");
-    $("join").classList.remove("hidden");
-    $("code").value = "";
+
   }
 
-  $("joinBtn").addEventListener("click", join);
-  $("code").addEventListener("keydown", (e) => { if (e.key === "Enter") join(); });
-  $("sendForm").addEventListener("submit", send);
-  $("leaveBtn").addEventListener("click", leave);
+  isTyping = false;
+
+  $("chat").classList.add("hidden");
+
+  $("join").classList.remove("hidden");
+
+  $("code").value = "";
+
+  $("messages").innerHTML = "";
+
+  $("typing").textContent = "";
+
+  $("onlineCount").textContent = "Not connected";
+
+  showStatus("");
+
+  seen.clear();
+
+}
+
+// ========================================
+// EVENT LISTENERS
+// ========================================
+
+$("joinBtn").addEventListener("click", join);
+
+$("code").addEventListener("keydown", e => {
+  if (e.key === "Enter") join();
+});
+
+$("sendForm").addEventListener("submit", send);
+
+$("leaveBtn").addEventListener("click", leave);
+
 </script>
+
 </body>
 </html>
